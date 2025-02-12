@@ -60,24 +60,6 @@ if (Module.isBuiltin) { // Added in node v18.6.0, v16.17.0
   }
 }
 
-// Feature detection: This property was added in Node.js 8.9.0, the same time
-// as the `paths` options argument was added to the `require.resolve` function,
-// which is the one we want
-let resolve
-// require.resolve might be undefined when using Node SEA mode:
-// https://nodejs.org/api/single-executable-applications.html
-// Also see https://github.com/nodejs/require-in-the-middle/issues/105
-if (require.resolve && require.resolve.paths) {
-  resolve = function (moduleName, basedir) {
-    return require.resolve(moduleName, { paths: [basedir] })
-  }
-} else {
-  const _resolve = require('resolve')
-  resolve = function (moduleName, basedir) {
-    return _resolve.sync(moduleName, { basedir })
-  }
-}
-
 // 'foo/bar.js' or 'foo/bar/index.js' => 'foo/bar'
 const normalize = /([/\\]index)?(\.js)?$/
 
@@ -154,6 +136,23 @@ function Hook (modules, options, onrequire) {
 
   this._unhooked = false
   this._origRequire = Module.prototype.require
+
+  // Feature detection: This property was added in Node.js 8.9.0, the same time
+  // as the `paths` options argument was added to the `require.resolve` function,
+  // which is the one we want
+  // require.resolve might be undefined when using Node SEA mode:
+  // https://nodejs.org/api/single-executable-applications.html
+  // Also see https://github.com/nodejs/require-in-the-middle/issues/105
+  if (require.resolve && require.resolve.paths) {
+    this._resolve = function (moduleName, basedir) {
+      return require.resolve(moduleName, { paths: [basedir] })
+    }
+  } else {
+    const _resolve = require('resolve')
+    this._resolve = function (moduleName, basedir) {
+      return _resolve.sync(moduleName, { basedir })
+    }
+  }
 
   const self = this
   const patching = new Set()
@@ -313,7 +312,7 @@ function Hook (modules, options, onrequire) {
         // figure out if this is the main module file, or a file inside the module
         let res
         try {
-          res = resolve(moduleName, basedir)
+          res = self._resolve(moduleName, basedir)
         } catch (e) {
           debug('could not resolve module: %s', moduleName)
           self._cache.set(filename, exports, core)
