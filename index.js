@@ -137,6 +137,7 @@ function Hook (modules, options, onrequire) {
   this._unhooked = false
   this._origRequire = Module.prototype.require
 
+  let resolve;
   // Feature detection: This property was added in Node.js 8.9.0, the same time
   // as the `paths` options argument was added to the `require.resolve` function,
   // which is the one we want
@@ -144,12 +145,12 @@ function Hook (modules, options, onrequire) {
   // https://nodejs.org/api/single-executable-applications.html
   // Also see https://github.com/nodejs/require-in-the-middle/issues/105
   if (require.resolve && require.resolve.paths) {
-    this._resolve = function (moduleName, basedir) {
+    resolve = function (moduleName, basedir) {
       return require.resolve(moduleName, { paths: [basedir] })
     }
   } else {
     const _resolve = require('resolve')
-    this._resolve = function (moduleName, basedir) {
+    resolve = function (moduleName, basedir) {
       return _resolve.sync(moduleName, { basedir })
     }
   }
@@ -312,7 +313,7 @@ function Hook (modules, options, onrequire) {
         // figure out if this is the main module file, or a file inside the module
         let res
         try {
-          res = self._resolve(moduleName, basedir)
+          res = resolve(moduleName, basedir)
         } catch (e) {
           debug('could not resolve module: %s', moduleName)
           self._cache.set(filename, exports, core)
